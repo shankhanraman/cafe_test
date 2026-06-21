@@ -1,0 +1,22 @@
+# Monorepo root — cross-cutting ignores. Build-tool/IDE specifics live in each subproject's .gitignore.
+
+# Editor / IDE (apply repo-wide)
+.vscode/
+.idea/
+*.iml
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
