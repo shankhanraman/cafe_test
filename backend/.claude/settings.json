@@ -1,0 +1,30 @@
+{
+  "plansDirectory": "features",
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./gradlew spotlessApply --quiet 2>&1 | tail -5"
+          }
+        ]
+      }
+    ]
+  }
+}
