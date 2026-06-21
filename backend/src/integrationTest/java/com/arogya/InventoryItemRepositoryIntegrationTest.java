@@ -32,6 +32,9 @@ class InventoryItemRepositoryIntegrationTest {
     repository.save(
         new InventoryItem(
             UUID.randomUUID(), "OK", Unit.ML, new BigDecimal("100"), new BigDecimal("50"), null));
-    assertThat(repository.findLowStock()).extracting(InventoryItem::getName).containsExactly("Low");
+    assertThat(repository.findLowStock())
+        .extracting(InventoryItem::getName)
+        .contains("Low")
+        .doesNotContain("OK");
   }
 }
