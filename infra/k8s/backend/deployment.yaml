@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cafe-test-backend
+  namespace: cafe-test
+  labels:
+    app: cafe-test-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cafe-test-backend
+  template:
+    metadata:
+      labels:
+        app: cafe-test-backend
+    spec:
+      containers:
+        - name: backend
+          # Image is patched by the backend CI workflow to the real ECR URL + git SHA.
+          image: cafe-test-backend:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: cafe-test-backend-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 10

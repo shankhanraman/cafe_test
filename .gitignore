@@ -5,6 +5,18 @@
 .idea/
 *.iml
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# Environment files
+.env
+.env.*
+!.env.example
+
 # OS
 .DS_Store
 Thumbs.db
