@@ -84,4 +84,3 @@ migrations on startup.
 ## Learnings
 
 <!-- Append one line each time Claude makes a mistake worth not repeating. -->
-- Write/update `docs/datamodel.md` (+Mermaid E-R), `dataflow.md`, `architecture.md` **before** code — even when executing a plan; make it Task 0, don't let the plan track skip the docs-first rule.
