@@ -1,0 +1,6 @@
+{
+  "suppliers": [
+    { "id": "sup-acme", "name": "Acme Dairy", "phone": "9000000001", "notes": "Morning milk delivery" },
+    { "id": "sup-kirana", "name": "Sharma Kirana", "phone": "9000000002", "notes": "" }
+  ]
+}

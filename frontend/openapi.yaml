@@ -1,0 +1,573 @@
+openapi: 3.0.3
+info:
+  title: Arogya Amrutalya Inventory API
+  version: 0.2.0
+  description: >
+    Shared contract between the React frontend and the Spring backend. This file is the
+    coordination artifact for parallel development — edit deliberately, version every change,
+    and run `pnpm gen` after editing.
+
+    v0.2 adds the management-approved Menu (recipes) and Sales (stock-deducting) domains and
+    the synchronous CRUD for Suppliers and Inventory. The OCR bill-scanning flow
+    (`/api/bills*`) is retained additively — it is the original product core and stays.
+
+    Draft: the backend is not built yet. Stable enough to build against; treat as draft until
+    endpoints actually run.
+servers:
+  - url: http://localhost:8080
+
+paths:
+  # ---------------------------------------------------------------- Suppliers
+  /api/suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [suppliers]
+      responses:
+        '200':
+          description: All suppliers
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/SupplierResponse' } }
+    post:
+      operationId: createSupplier
+      tags: [suppliers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/suppliers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getSupplier
+      tags: [suppliers]
+      responses:
+        '200':
+          description: Supplier
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateSupplier
+      tags: [suppliers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteSupplier
+      tags: [suppliers]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- Inventory
+  /api/inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      responses:
+        '200':
+          description: All inventory items
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/InventoryResponse' } }
+    post:
+      operationId: createInventoryItem
+      tags: [inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InventoryRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/inventory/low-stock:
+    get:
+      operationId: listLowStock
+      tags: [inventory]
+      summary: Items where quantityOnHand <= reorderThreshold
+      responses:
+        '200':
+          description: Low-stock items
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/LowStockResponse' } }
+  /api/inventory/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getInventoryItem
+      tags: [inventory]
+      responses:
+        '200':
+          description: Item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateInventoryItem
+      tags: [inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InventoryRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteInventoryItem
+      tags: [inventory]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/inventory/{id}/adjust:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: adjustStock
+      tags: [inventory]
+      summary: Deliveries and corrections. Delta may be negative but cannot drop stock below zero.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdjustRequest' }
+      responses:
+        '200':
+          description: Adjusted item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- Menu & recipes
+  /api/menu:
+    get:
+      operationId: listMenu
+      tags: [menu]
+      responses:
+        '200':
+          description: All menu items
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/MenuResponse' } }
+    post:
+      operationId: createMenuItem
+      tags: [menu]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/menu/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getMenuItem
+      tags: [menu]
+      responses:
+        '200':
+          description: Menu item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateMenuItem
+      tags: [menu]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteMenuItem
+      tags: [menu]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/menu/{id}/recipe:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getMenuRecipe
+      tags: [menu]
+      responses:
+        '200':
+          description: Menu item with its recipe lines
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: setMenuRecipe
+      tags: [menu]
+      summary: Replace the recipe. Valid for MADE items only (400 for RESALE).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecipeRequest' }
+      responses:
+        '200':
+          description: Updated menu item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- Sales
+  /api/sales:
+    get:
+      operationId: listSales
+      tags: [sales]
+      summary: Latest 100 sales
+      responses:
+        '200':
+          description: Sales
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/SaleResponse' } }
+    post:
+      operationId: recordSale
+      tags: [sales]
+      summary: >
+        Records a sale and deducts stock in one transaction. Never blocked by low stock —
+        stock may go to or below zero. 400 only for the validation cases.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleRequest' }
+      responses:
+        '201':
+          description: Sale recorded; stock deducted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaleResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  # ---------------------------------------------------------------- OCR bills (retained core)
+  /api/bills:
+    post:
+      operationId: submitBill
+      tags: [bills]
+      summary: Upload a supplier bill for OCR extraction (ASYNC — poll the job)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                supplierId: { type: string, format: uuid, nullable: true }
+      responses:
+        '202':
+          description: Job accepted; poll GET /api/bills/{jobId}
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillJob' }
+  /api/bills/{jobId}:
+    parameters:
+      - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getBillJob
+      tags: [bills]
+      responses:
+        '200':
+          description: Current job state. Preview table shown only for `done`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillJob' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/bills/{jobId}/confirm:
+    parameters:
+      - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: confirmBill
+      tags: [bills]
+      summary: Commit resolved lines to stock; saves the purchase; learns per-supplier aliases server-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmBillRequest' }
+      responses:
+        '200':
+          description: Confirmation summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfirmBillResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  responses:
+    NotFound:
+      description: Unknown ID (RFC 7807)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    ValidationError:
+      description: Validation failure (RFC 7807)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+
+  schemas:
+    ProblemDetail:
+      type: object
+      description: RFC 7807 error body.
+      required: [status, detail]
+      properties:
+        type: { type: string, nullable: true }
+        title: { type: string, nullable: true }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, nullable: true }
+
+    # ---- enums
+    Unit:
+      type: string
+      enum: [SACHET, ML, PIECE]
+    Category:
+      type: string
+      enum: [CIGARETTES, TEA_COFFEE, MILK_SHAKES, JUICES, COLD_DRINKS, SNACKS, KULHAD]
+    MenuType:
+      type: string
+      enum: [MADE, RESALE]
+    OrderSize:
+      type: string
+      enum: [REGULAR, LESS, SERVING]
+
+    # ---- suppliers
+    SupplierRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+    SupplierResponse:
+      allOf:
+        - $ref: '#/components/schemas/SupplierRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+
+    # ---- inventory
+    InventoryRequest:
+      type: object
+      required: [name, unit, quantityOnHand, reorderThreshold]
+      properties:
+        name: { type: string }
+        unit: { $ref: '#/components/schemas/Unit' }
+        quantityOnHand: { type: number }
+        reorderThreshold: { type: number }
+        supplierId: { type: string, format: uuid, nullable: true }
+    InventoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/InventoryRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+    LowStockResponse:
+      type: object
+      required: [id, name, quantityOnHand, reorderThreshold]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        quantityOnHand: { type: number }
+        reorderThreshold: { type: number }
+        supplierId: { type: string, format: uuid, nullable: true }
+        supplierName: { type: string, nullable: true }
+    AdjustRequest:
+      type: object
+      required: [delta, reason]
+      description: Delta may be negative but cannot drop stock below zero.
+      properties:
+        delta: { type: number }
+        reason: { type: string, description: 'e.g. delivery, correction, spoilage' }
+
+    # ---- menu & recipes
+    MenuRequest:
+      type: object
+      required: [name, category, type]
+      properties:
+        name: { type: string }
+        category: { $ref: '#/components/schemas/Category' }
+        type: { $ref: '#/components/schemas/MenuType' }
+        resaleItemId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for RESALE (the inventory item sold directly); null for MADE.
+    RecipeLine:
+      type: object
+      required: [orderSize, inventoryItemId, quantity]
+      properties:
+        orderSize: { $ref: '#/components/schemas/OrderSize' }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+    RecipeRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeLine' }
+    MenuResponse:
+      allOf:
+        - $ref: '#/components/schemas/MenuRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+            recipe:
+              type: array
+              description: Present for MADE items.
+              items: { $ref: '#/components/schemas/RecipeLine' }
+
+    # ---- sales
+    SaleRequest:
+      type: object
+      required: [menuItemId, quantity]
+      properties:
+        menuItemId: { type: string, format: uuid }
+        orderSize:
+          allOf: [{ $ref: '#/components/schemas/OrderSize' }]
+          nullable: true
+          description: Required for MADE sales; null/omitted for RESALE.
+        quantity: { type: number }
+    SaleResponse:
+      type: object
+      required: [id, menuItemId, menuItemName, quantity, soldAt]
+      properties:
+        id: { type: string, format: uuid }
+        menuItemId: { type: string, format: uuid }
+        menuItemName: { type: string }
+        orderSize:
+          allOf: [{ $ref: '#/components/schemas/OrderSize' }]
+          nullable: true
+        quantity: { type: number }
+        soldAt: { type: string, format: date-time }
+
+    # ---- OCR bills (retained core)
+    BillJob:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId: { type: string, format: uuid }
+        status:
+          type: string
+          description: Async lifecycle. The preview table is shown ONLY for `done`.
+          enum: [processing, done, failed, unreadable]
+        lines:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/BillLine' }
+        supplierId: { type: string, format: uuid, nullable: true }
+        error: { type: string, nullable: true }
+    BillLine:
+      type: object
+      required: [lineId, rawName, matchState]
+      properties:
+        lineId: { type: string, format: uuid }
+        rawName:
+          type: string
+          description: Item name as OCR read it; may be Devanagari, romanized Hindi, or English.
+        quantity: { type: number, nullable: true }
+        unit: { type: string, nullable: true, description: OCR-read free text; mapped to an Inventory Unit on confirm. }
+        price: { type: number, nullable: true }
+        matchState: { type: string, enum: [confident, needs_review, new] }
+        suggestedItemId: { type: string, format: uuid, nullable: true }
+        suggestions:
+          type: array
+          items: { $ref: '#/components/schemas/ItemSuggestion' }
+        matchedViaAlias: { type: string, nullable: true }
+    ItemSuggestion:
+      type: object
+      required: [itemId, name, score]
+      properties:
+        itemId: { type: string, format: uuid }
+        name: { type: string }
+        score: { type: number, description: 0..1 confidence }
+    ConfirmBillRequest:
+      type: object
+      required: [supplierId, lines]
+      properties:
+        supplierId: { type: string, format: uuid }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [lineId, resolution]
+            properties:
+              lineId: { type: string, format: uuid }
+              resolution: { type: string, enum: [matched, created, skipped] }
+              resolvedItemId: { type: string, format: uuid, nullable: true }
+              quantity: { type: number, nullable: true }
+              unit: { allOf: [{ $ref: '#/components/schemas/Unit' }], nullable: true }
+              newItem:
+                nullable: true
+                allOf: [{ $ref: '#/components/schemas/InventoryRequest' }]
+    ConfirmBillResult:
+      type: object
+      required: [purchaseId, updatedCount, newItemsCount, total]
+      properties:
+        purchaseId: { type: string, format: uuid }
+        updatedCount: { type: integer }
+        newItemsCount: { type: integer }
+        total: { type: number }

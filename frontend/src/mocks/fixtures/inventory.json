@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "id": "inv-milk",
+      "name": "Milk",
+      "unit": "ML",
+      "quantityOnHand": 1000,
+      "reorderThreshold": 200,
+      "supplierId": "sup-acme"
+    },
+    {
+      "id": "inv-teabag",
+      "name": "Tea bags",
+      "unit": "PIECE",
+      "quantityOnHand": 300,
+      "reorderThreshold": 50,
+      "supplierId": "sup-acme"
+    },
+    {
+      "id": "inv-sugar",
+      "name": "Sugar sachet",
+      "unit": "SACHET",
+      "quantityOnHand": 50,
+      "reorderThreshold": 100,
+      "supplierId": null
+    },
+    {
+      "id": "inv-cig",
+      "name": "Cigarette",
+      "unit": "PIECE",
+      "quantityOnHand": 5,
+      "reorderThreshold": 20,
+      "supplierId": "sup-acme"
+    }
+  ]
+}
