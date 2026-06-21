@@ -1,7 +1,10 @@
-# AROGYA Inventory — API Contract (draft)
+# AROGYA Inventory — API Contract
 
-> ⚠️ **Planned contract** from the approved spec — the backend is not built yet. Stable enough
-> to start frontend work against, but treat as draft until endpoints actually run.
+> **Live, interactive docs** (when the app is running):
+> - Swagger UI: `http://localhost:8080/swagger-ui.html`
+> - OpenAPI JSON (codegen-ready): `http://localhost:8080/v3/api-docs`
+>
+> This file is a hand summary; the OpenAPI spec above is generated from the code and authoritative.
 
 Base URL `http://localhost:8080` · JSON in/out · IDs are UUID strings · quantities decimal ·
 timestamps ISO-8601 UTC. Errors return RFC 7807 `ProblemDetail` (`application/problem+json`):

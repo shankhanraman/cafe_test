@@ -18,25 +18,26 @@ Spring Boot **4.1.0** · Java 21 · Gradle (`./gradlew`) · PostgreSQL · Flyway
 ## Package structure — package by feature
 
 ```
-com.arogya
+com.arogya.cafe
 ├── common/                      # cross-cutting: NotFoundException, ValidationException,
 │                                #   GlobalExceptionHandler (RFC 7807)
-├── supplier/  {domain, repository, service, web}
-├── inventory/ {domain, repository, service, web}
-├── menu/      {domain, repository, service, web}
-└── sales/     {domain, repository, service, web}
+├── supplier/  {controller, service, dto, entity, repository}
+├── inventory/ {controller, service, dto, entity, repository}
+├── menu/      {controller, service, dto, entity, repository}
+└── sales/     {controller, service, dto, entity, repository}
 ```
 
-Each feature is a vertical slice. Files that change together live together.
+Each module is a vertical slice. Files that change together live together.
 
 ## Layer responsibilities
 
 | Layer | Rule |
 |---|---|
-| `web` (Controller) | Thin. `@Valid` request DTOs, map path/query → service calls, set HTTP status. No logic. |
-| `service` | Owns business logic and `@Transactional` boundaries. Maps entities ⇄ `record` DTOs. Throws domain exceptions. |
+| `controller` | Thin. `@Valid` request DTOs, map path/query → service calls, set HTTP status. No logic. |
+| `service` | Owns business logic and `@Transactional` boundaries. Maps entities ⇄ `dto` records. Throws domain exceptions. |
+| `dto` | `record` request/response types crossing the wire. Response records hold an entity→DTO `from(...)` factory. |
 | `repository` | Spring Data JPA interfaces only. Custom queries via `@Query` (e.g. `findLowStock`). |
-| `domain` | JPA entities + enums. Behavior on the entity where it belongs (`deduct`, `adjust`, `isLowStock`, `replaceRecipe`). Never serialized over the wire. |
+| `entity` | JPA entities + enums. Behavior on the entity where it belongs (`deduct`, `adjust`, `isLowStock`, `replaceRecipe`). Never serialized over the wire. |
 
 ## Key decisions
 
