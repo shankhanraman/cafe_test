@@ -52,7 +52,8 @@ Doc layout: spec docs (`datamodel.md`, `dataflow.md`, `architecture.md`) live in
 ## House conventions
 
 State the wanted behavior, not just a ban. <!-- ← EDIT to your team's standards -->
-- Package by feature: `com.example.<feature>.{web,service,domain,repository}`.
+- Package by feature: `com.arogya.cafe.<module>.{controller, service, dto, entity, repository}`
+  (`<module>` = supplier, inventory, menu, sales; cross-cutting in `com.arogya.cafe.common`).
 - Controllers stay thin (no logic); services own logic and `@Transactional`; repositories are
   Spring Data interfaces only.
 - Don't expose JPA entities over the wire — use `record` request/response DTOs and map in the service.

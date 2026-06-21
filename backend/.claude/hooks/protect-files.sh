@@ -1,7 +1,7 @@
 #!/bin/bash
 # protect-files.sh
 
-INPUT=$(cat)
+INPUT=$(cat) ad
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
 PROTECTED_PATTERNS=(".env" "package-lock.json" ".git/")
