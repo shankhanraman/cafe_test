@@ -47,6 +47,7 @@ the one(s) you need, and you may load several for a task that spans areas.
 | Entities, Spring Data repositories, relationships, N+1, transactions, PostgreSQL mapping | `references/persistence-jpa.md` |
 | Database schema changes, versioned `V__` scripts, safe/zero-downtime DDL | `references/flyway-migrations.md` |
 | Authentication, authorization, filter chain, 401/403, CSRF, method security, security review | `references/spring-security.md` |
+| REST API documentation — OpenAPI/Swagger UI, springdoc, `@Tag`/`@Operation`/`@ApiResponse` | `references/api-documentation.md` |
 | Unit tests, `@WebMvcTest` slice tests, `@SpringBootTest` + Testcontainers integration tests | `references/spring-boot-testing.md` |
 | General Java quality — clean code, SOLID, immutability, exceptions, concurrency, performance | `references/java-best-practices.md` |
 
@@ -60,9 +61,13 @@ give the fullest picture.
 2. `persistence-jpa` — entities and repositories
 3. `flyway-migrations` — schema
 4. `spring-boot-core` — service and controller layers
-5. `spring-security` — authentication and authorization
-6. `spring-boot-testing` — unit, slice, and integration tests
-7. `java-best-practices` — review and refactor passes
+5. `api-documentation` — add springdoc OpenAPI/Swagger UI; annotate controllers
+6. `spring-security` — authentication and authorization
+7. `spring-boot-testing` — unit, slice, and integration tests
+8. `java-best-practices` — review and refactor passes
+
+Add OpenAPI/Swagger to **every** REST API project by default (it is opt-in — no dependency, no
+docs), per `references/api-documentation.md`.
 
 ## Validate before declaring done
 
