@@ -28,6 +28,10 @@ and only then write code.
 
 ## Workflow
 
+**Rule:** every feature/ticket starts by invoking the `spring-boot-spec-driven` skill. Writing or
+updating `docs/datamodel.md` (+E-R), `dataflow.md`, then `architecture.md` is **step 0 — done before
+any code**, including when building through a Superpowers plan (make the docs the plan's first task).
+
 Build every feature through Superpowers, in order:
 1. `/superpowers:brainstorm` — agree the spec (entities, endpoints, auth, domain rules; plus the
    skill's open questions: service layer? security? migrations?).
