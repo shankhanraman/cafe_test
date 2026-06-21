@@ -10,6 +10,14 @@ module "eks" {
 
   cluster_endpoint_public_access = true
 
+  # EBS CSI driver is required for PersistentVolumeClaims (the Postgres StatefulSet) to bind.
+  cluster_addons = {
+    coredns                = {}
+    kube-proxy             = {}
+    vpc-cni                = {}
+    aws-ebs-csi-driver     = {}
+  }
+
   eks_managed_node_groups = {
     main = {
       instance_types = [var.node_instance_type]
