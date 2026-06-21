@@ -1,0 +1,10 @@
+# Monorepo root — cross-cutting ignores. Build-tool/IDE specifics live in each subproject's .gitignore.
+
+# Editor / IDE (apply repo-wide)
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
