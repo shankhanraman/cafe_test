@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "id": "menu-tea",
+      "name": "Masala Chai",
+      "category": "TEA_COFFEE",
+      "type": "MADE",
+      "resaleItemId": null,
+      "recipe": [
+        { "orderSize": "REGULAR", "inventoryItemId": "inv-milk", "quantity": 180 },
+        { "orderSize": "REGULAR", "inventoryItemId": "inv-teabag", "quantity": 1 },
+        { "orderSize": "REGULAR", "inventoryItemId": "inv-sugar", "quantity": 1 },
+        { "orderSize": "LESS", "inventoryItemId": "inv-milk", "quantity": 120 },
+        { "orderSize": "LESS", "inventoryItemId": "inv-teabag", "quantity": 1 }
+      ]
+    },
+    {
+      "id": "menu-cig",
+      "name": "Cigarette (single)",
+      "category": "CIGARETTES",
+      "type": "RESALE",
+      "resaleItemId": "inv-cig",
+      "recipe": []
+    }
+  ]
+}

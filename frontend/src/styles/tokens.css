@@ -1,0 +1,158 @@
+/* Authoritative design tokens — from the Arogya Amrutalya Inventory handoff. */
+:root {
+  /* brand / pine */
+  --pine-900: #0a463d;
+  --pine-700: #0e5a4e;
+  --pine-tint: #e6f0ed;
+  --brass: #b8902e;
+
+  /* status */
+  --confident: #1e8f62;
+  --confident-tint: #e4f3ec;
+  --review: #b26a00;
+  --review-tint: #fbf0dc;
+  --flag: #c8472b;
+  --flag-tint: #fbe7e1;
+  --resale: #7a5ab0;
+  --resale-tint: #f1ecf8;
+
+  /* surfaces / text */
+  --surface: #faf8f3;
+  --card: #ffffff;
+  --ink: #18211d;
+  --muted: #5e6b64;
+  --faint: #8a958e;
+  --faint-2: #9aa39b;
+  --border: #eae5da;
+  --border-2: #e7e3d9;
+  --divider: #f4f1e9;
+  --divider-2: #f0ece3;
+
+  /* sidebar text */
+  --side-inactive: #9fbdb1;
+  --side-section: #5a8478;
+  --side-active: #ffffff;
+
+  /* shape */
+  --r-card: 16px;
+  --r-card-lg: 18px;
+  --r-control: 10px;
+  --r-chip: 8px;
+  --shadow-card: 0 10px 30px rgba(20, 40, 30, 0.05);
+  --shadow-modal: 0 24px 70px rgba(10, 30, 20, 0.3);
+
+  /* layout */
+  --sidebar-w: 248px;
+  --topbar-h: 68px;
+  --content-max: 1180px;
+
+  /* fonts */
+  --font-display: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-dvn: 'Noto Sans Devanagari', 'Hanken Grotesk', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+}
+::selection {
+  background: var(--pine-700);
+  color: #fff;
+}
+
+.dvn {
+  font-family: var(--font-dvn);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+}
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+.eyebrow {
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+a {
+  color: var(--pine-700);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes scanline {
+  0% {
+    top: 6%;
+  }
+  50% {
+    top: 88%;
+  }
+  100% {
+    top: 6%;
+  }
+}
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) translateX(-50%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.4s ease both;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8d2c6;
+  border-radius: 8px;
+  border: 2px solid var(--surface);
+}
