@@ -35,6 +35,45 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+# SPA routing scoped to the frontend only. Rewrites extensionless, non-/api paths
+# (e.g. /menu) to /index.html so React Router handles them. Crucially, it does NOT
+# touch /api/* — so real backend 404/403 responses reach the browser intact,
+# unlike a distribution-wide custom_error_response.
+resource "aws_cloudfront_function" "spa_router" {
+  name    = "${var.project_name}-spa-router"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite extensionless non-/api paths to /index.html for SPA routing"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      // Leave API calls untouched so backend error codes pass through.
+      if (uri.startsWith('/api/')) { return request; }
+      // Real files (with an extension) are served as-is.
+      if (uri.includes('.')) { return request; }
+      // Client-side route -> serve the SPA entrypoint.
+      request.uri = '/index.html';
+      return request;
+    }
+  EOT
+}
+
+# Phase 2 only: read the backend Service's NLB hostname from the live cluster so
+# CloudFront can route /api/* to it. Gated by enable_api_origin because the
+# Service (and its NLB) only exist after the backend is deployed via Argo CD.
+data "kubernetes_service" "backend" {
+  count = var.enable_api_origin ? 1 : 0
+  metadata {
+    name      = "cafe-test-backend"
+    namespace = "cafe-test"
+  }
+}
+
+locals {
+  backend_nlb_hostname = var.enable_api_origin ? data.kubernetes_service.backend[0].status[0].load_balancer[0].ingress[0].hostname : null
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
@@ -45,6 +84,22 @@ resource "aws_cloudfront_distribution" "frontend" {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "s3-${aws_s3_bucket.frontend.id}"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  # Phase 2: backend API origin (the internet-facing NLB). CloudFront talks to it
+  # over plain HTTP on port 80; the NLB forwards to the backend pods on 8080.
+  dynamic "origin" {
+    for_each = var.enable_api_origin ? [1] : []
+    content {
+      domain_name = local.backend_nlb_hostname
+      origin_id   = "nlb-backend"
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
   }
 
   default_cache_behavior {
@@ -64,20 +119,41 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl     = 0
     default_ttl = 3600
     max_ttl     = 86400
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_router.arn
+    }
   }
 
-  # SPA routing: serve index.html for client-side routes instead of 403/404.
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
+  # Phase 2: route /api/* to the backend NLB. APIs are not cached (TTLs = 0) and
+  # all query strings, cookies, and headers (incl. Authorization) are forwarded.
+  dynamic "ordered_cache_behavior" {
+    for_each = var.enable_api_origin ? [1] : []
+    content {
+      path_pattern           = "/api/*"
+      target_origin_id       = "nlb-backend"
+      viewer_protocol_policy = "redirect-to-https"
+      allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods         = ["GET", "HEAD"]
+      compress               = true
+
+      forwarded_values {
+        query_string = true
+        headers      = ["*"]
+        cookies {
+          forward = "all"
+        }
+      }
+
+      min_ttl     = 0
+      default_ttl = 0
+      max_ttl     = 0
+    }
   }
 
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
+  # SPA routing is handled by the spa_router CloudFront Function (viewer-request)
+  # on the default behavior, scoped to non-/api paths — see above.
 
   restrictions {
     geo_restriction {

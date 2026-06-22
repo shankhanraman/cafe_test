@@ -3,6 +3,12 @@ kind: Service
 metadata:
   name: cafe-test-backend
   namespace: cafe-test
+  annotations:
+    # Provision an internet-facing Network Load Balancer via the in-tree AWS
+    # cloud provider (no AWS Load Balancer Controller required). CloudFront uses
+    # this NLB's DNS name as the origin for /api/* requests.
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   selector:
     app: cafe-test-backend
@@ -10,4 +16,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8080
-  type: ClusterIP
+  type: LoadBalancer

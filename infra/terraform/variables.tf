@@ -36,3 +36,14 @@ variable "node_desired_size" {
   type    = number
   default = 2
 }
+
+# Two-phase switch for frontend->backend connectivity.
+# Phase 1 (false): provision everything except the CloudFront /api/* route.
+#   The backend NLB does not exist yet, so its hostname cannot be read.
+# Phase 2 (true): after the backend Service has an NLB hostname, Terraform reads
+#   it via the kubernetes_service data source and adds the /api/* origin/behavior.
+variable "enable_api_origin" {
+  description = "Wire CloudFront /api/* to the backend NLB. Enable only after the backend Service has an NLB hostname."
+  type        = bool
+  default     = false
+}
