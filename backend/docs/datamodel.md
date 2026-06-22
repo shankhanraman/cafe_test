@@ -8,6 +8,9 @@ Source of truth for entities and relationships. Schema is owned by Flyway
 ```mermaid
 erDiagram
     SUPPLIER ||--o{ INVENTORY_ITEM : supplies
+    SUPPLIER ||--o{ GOODS_RECEIPT : "delivers"
+    GOODS_RECEIPT ||--o{ GOODS_RECEIPT_LINE : "contains"
+    INVENTORY_ITEM ||--o{ GOODS_RECEIPT_LINE : "stocked by"
     INVENTORY_ITEM ||--o{ RECIPE_LINE : "used in"
     MENU_ITEM ||--o{ RECIPE_LINE : "made from"
     MENU_ITEM ||--o| INVENTORY_ITEM : "resale draws from"
@@ -48,6 +51,27 @@ erDiagram
         int quantity "default 1"
         timestamptz sold_at
     }
+    GOODS_RECEIPT {
+        uuid id PK
+        uuid supplier_id FK "nullable"
+        string bill_number "nullable"
+        string bill_date "nullable"
+        string engine_used
+        enum status "APPLIED, PARTIAL, UNMATCHED_SUPPLIER"
+        jsonb raw_json
+        timestamptz created_at
+    }
+    GOODS_RECEIPT_LINE {
+        uuid id PK
+        uuid receipt_id FK
+        string description
+        decimal scanned_quantity "nullable"
+        string scanned_unit "nullable"
+        uuid matched_item_id FK "nullable"
+        decimal applied_quantity "nullable"
+        enum line_status "APPLIED, UNMATCHED_ITEM, NEEDS_REVIEW"
+        string note "nullable"
+    }
 ```
 
 ## Entity notes
@@ -62,6 +86,12 @@ erDiagram
   typically has a premix line (1 sachet) plus a milk line (e.g. 180 ml); kulhad items add a cup line.
 - **SALE** — append-only event. `order_size` required for MADE, null for RESALE. Recorded even when
   resulting stock goes ≤ 0 (sales are never blocked).
+- **GOODS_RECEIPT** — one per scanned supplier bill. `status = APPLIED` when every line applied,
+  `PARTIAL` when some lines were held, `UNMATCHED_SUPPLIER` when no supplier could be resolved.
+  Unique `(supplier_id, bill_number)` prevents re-applying the same bill.
+- **GOODS_RECEIPT_LINE** — one per scanned line item. `APPLIED` lines added `applied_quantity` to
+  the matched inventory item; `UNMATCHED_ITEM` (no name match) and `NEEDS_REVIEW` (unit
+  missing/incompatible) lines change no stock.
 
 ## Java mapping
 

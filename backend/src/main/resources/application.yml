@@ -10,6 +10,10 @@ spring:
   flyway:
     enabled: true
 
+billscan:
+  base-url: ${BILLSCAN_BASE_URL:http://localhost:8000}
+  timeout-seconds: 60
+
 management:
   endpoint:
     health:

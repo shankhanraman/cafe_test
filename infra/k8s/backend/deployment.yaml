@@ -43,3 +43,23 @@ spec:
               port: 8080
             initialDelaySeconds: 40
             periodSeconds: 10
+        # Sidecar: bill-scanner (FastAPI). The backend reaches it at
+        # http://localhost:8000 (BILLSCAN_BASE_URL default) over the shared pod network.
+        - name: billscan
+          # Image is patched by the billscan CI workflow to the real ECR URL + git SHA.
+          image: 835253518413.dkr.ecr.us-east-1.amazonaws.com/cafe-test-billscan:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
