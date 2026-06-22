@@ -47,43 +47,37 @@ argocd/            Argo CD Application (auto-sync from infra/k8s/backend)
    - `FRONTEND_BUCKET` — from `terraform output frontend_bucket_name`.
    - `CLOUDFRONT_DISTRIBUTION_ID` — from `terraform output frontend_cloudfront_distribution_id`.
    `GITHUB_TOKEN` is provided automatically.
-### Deploy the backend
-
-4. **Provide the backend's DB secret** (do not commit real values):
+4. **Create the namespace and DB secrets** (do not commit real values). The backend talks to an
+   in-cluster Postgres (`infra/k8s/postgres`) at `postgres.cafe-test.svc.cluster.local:5432`; the two
+   passwords must match.
    ```bash
    kubectl create namespace cafe-test
+   PGPASS='choose-a-strong-password'
+   # Postgres pod credentials
+   kubectl -n cafe-test create secret generic cafe-test-postgres-secrets \
+     --from-literal=POSTGRES_USER=arogya \
+     --from-literal=POSTGRES_PASSWORD="$PGPASS" \
+     --from-literal=POSTGRES_DB=arogya
+   # Backend connection (same password)
    kubectl -n cafe-test create secret generic cafe-test-backend-secrets \
-     --from-literal=SPRING_DATASOURCE_URL='jdbc:postgresql://<rds-endpoint>:5432/arogya' \
-     --from-literal=SPRING_DATASOURCE_USERNAME='<user>' \
-     --from-literal=SPRING_DATASOURCE_PASSWORD='<pass>'
+     --from-literal=SPRING_DATASOURCE_URL='jdbc:postgresql://postgres.cafe-test.svc.cluster.local:5432/arogya' \
+     --from-literal=SPRING_DATASOURCE_USERNAME=arogya \
+     --from-literal=SPRING_DATASOURCE_PASSWORD="$PGPASS"
    ```
-   (Point the URL at a managed Postgres such as AWS RDS — Terraform here provisions the cluster, not the DB.)
-5. **Install Argo CD and register the app:**
+   For production, point `SPRING_DATASOURCE_URL` at AWS RDS instead and skip the Postgres pod.
+   The Postgres `PersistentVolumeClaim` needs the EBS CSI driver — it's enabled in `eks.tf`
+   (`cluster_addons.aws-ebs-csi-driver`), which also provides a default `gp2` StorageClass.
+5. **Install Argo CD and register the apps** (Postgres + backend):
    ```bash
    kubectl create namespace argocd
    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-   kubectl apply -f argocd/
+   kubectl apply -f argocd/   # applies both postgres-app.yaml and backend-app.yaml
    ```
-6. **Push to `main` with changes under `backend/`** — `backend.yml` runs tests, builds the image,
-   pushes to ECR, rewrites the image tag in `infra/k8s/backend/deployment.yaml`, and commits. Argo CD
-   then auto-syncs the new image to the cluster.
-
-### Deploy the frontend
-
-7. **Push to `main` with changes under `frontend/`** — `frontend.yml` runs typecheck + tests, builds
-   the Vite app (`frontend/dist/`), syncs it to the private S3 bucket, and invalidates CloudFront.
-   No extra setup beyond the Secrets in step 3 — the bucket and CDN were created by `terraform apply`.
-8. **Open the site** at the URL from `terraform output frontend_url`
-   (a `https://<id>.cloudfront.net` address).
-
-To deploy the frontend manually instead of via push:
-```bash
-cd frontend && npm ci && npm run build
-aws s3 sync dist/ "s3://$(terraform -chdir=../infra/terraform output -raw frontend_bucket_name)" --delete
-aws cloudfront create-invalidation \
-  --distribution-id "$(terraform -chdir=../infra/terraform output -raw frontend_cloudfront_distribution_id)" \
-  --paths "/*"
-```
+   Postgres comes up first; the backend may crash-loop briefly until the DB is ready, then Flyway
+   migrates and it goes healthy.
+6. **Push to `main`** — the workflow runs tests, builds the image, pushes to ECR, rewrites the image
+   tag in `infra/k8s/backend/deployment.yaml`, and commits. Argo CD then auto-syncs the new image to
+   the cluster.
 
 ## Notes
 - Backend Service is `ClusterIP` (internal). Expose it via an Ingress/ALB or a frontend when needed.
