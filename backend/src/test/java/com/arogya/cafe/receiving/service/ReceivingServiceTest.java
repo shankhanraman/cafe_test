@@ -17,7 +17,6 @@ import com.arogya.cafe.receiving.entity.ReceiptStatus;
 import com.arogya.cafe.receiving.repository.GoodsReceiptRepository;
 import com.arogya.cafe.supplier.entity.Supplier;
 import com.arogya.cafe.supplier.repository.SupplierRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -43,11 +42,7 @@ class ReceivingServiceTest {
   void setUp() {
     service =
         new ReceivingService(
-            billScanClient,
-            inventoryRepository,
-            supplierRepository,
-            receiptRepository,
-            new ObjectMapper());
+            billScanClient, inventoryRepository, supplierRepository, receiptRepository);
     supplierId = UUID.randomUUID();
     when(receiptRepository.save(any(GoodsReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
   }

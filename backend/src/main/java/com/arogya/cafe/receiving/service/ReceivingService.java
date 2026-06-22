@@ -33,19 +33,17 @@ public class ReceivingService {
   private final InventoryItemRepository inventoryRepository;
   private final SupplierRepository supplierRepository;
   private final GoodsReceiptRepository receiptRepository;
-  private final ObjectMapper objectMapper;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public ReceivingService(
       BillScanClient billScanClient,
       InventoryItemRepository inventoryRepository,
       SupplierRepository supplierRepository,
-      GoodsReceiptRepository receiptRepository,
-      ObjectMapper objectMapper) {
+      GoodsReceiptRepository receiptRepository) {
     this.billScanClient = billScanClient;
     this.inventoryRepository = inventoryRepository;
     this.supplierRepository = supplierRepository;
     this.receiptRepository = receiptRepository;
-    this.objectMapper = objectMapper;
   }
 
   public ScanReceiptResponse scan(
