@@ -12,4 +12,6 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, UU
       "select i from InventoryItem i left join fetch i.supplier "
           + "where i.quantityOnHand <= i.reorderThreshold order by i.name")
   List<InventoryItem> findLowStock();
+
+  List<InventoryItem> findBySupplierId(UUID supplierId);
 }
