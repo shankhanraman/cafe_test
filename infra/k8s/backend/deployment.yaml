@@ -18,7 +18,7 @@ spec:
       containers:
         - name: backend
           # Image is patched by the backend CI workflow to the real ECR URL + git SHA.
-          image: 835253518413.dkr.ecr.us-east-1.amazonaws.com/cafe-test-backend:c29b06bd9f9751a99439407bcc4b28e5f2c92417
+          image: 835253518413.dkr.ecr.us-east-1.amazonaws.com/cafe-test-backend:b48dd315cf21cbac1b19afed90c1454c85e7dedf
           ports:
             - containerPort: 8080
           envFrom:
