@@ -50,6 +50,39 @@ flowchart TD
 adds `delta` (may be negative); rejects with 400 if the result would drop below zero. This is the
 only way stock goes up — reordering happens outside the app (alert-only, no purchase orders).
 
+## Core flow 4 — scan a supplier bill (stock-in via billscan)
+
+`POST /api/receiving/scan` (multipart: `file`, optional `supplierId`, optional `engine`)
+
+```mermaid
+flowchart TD
+    A[ReceivingController.scan] --> B[ReceivingService.scan @Transactional]
+    B --> C[BillScanClient.scan -> billscan sidecar /scan]
+    C -- unreachable --> E1[BillScanException -> 502]
+    C -- ok --> D{supplier resolved?<br/>by supplierId, else vendor_name}
+    D -- no --> U[record all lines UNMATCHED_ITEM,<br/>status UNMATCHED_SUPPLIER, no stock change]
+    D -- yes --> DUP{bill already received?<br/>supplier_id+bill_number}
+    DUP -- yes --> E2[DuplicateReceiptException -> 409]
+    DUP -- no --> L[for each line, scoped to supplier's items]
+    L --> M{name match?}
+    M -- no --> X[line UNMATCHED_ITEM]
+    M -- yes --> N{unit maps & equals item unit?}
+    N -- no --> R[line NEEDS_REVIEW]
+    N -- yes --> P[item.adjust +qty×multiplier,<br/>line APPLIED]
+    X --> S[save GoodsReceipt + lines]
+    R --> S
+    P --> S
+    U --> S
+    S --> T[200 ScanReceiptResponse<br/>counts + per-line results]
+```
+
+- billscan runs as a **sidecar** reached at `billscan.base-url` (default `http://localhost:8000`);
+  the `BillScanClient` interface isolates the HTTP call so it can be stubbed in tests.
+- Unit reconciliation maps the scanned unit string to the `Unit` enum (litre → ML ×1000);
+  only lines whose mapped unit equals the inventory item's unit apply stock.
+- Applied lines mutate managed `InventoryItem` entities (JPA dirty-checking flushes them in the
+  same transaction); a single scan may partially apply.
+
 ## CRUD flows
 
 Suppliers, inventory items, and menu items follow the standard

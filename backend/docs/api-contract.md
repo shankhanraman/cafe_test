@@ -47,6 +47,15 @@ timestamps ISO-8601 UTC. Errors return RFC 7807 `ProblemDetail` (`application/pr
 | POST | `/api/sales` | `SaleRequest` | 201 `SaleResponse` (deducts stock in one txn) |
 | GET | `/api/sales` | — | `SaleResponse[]` (latest 100) |
 
+## Receiving — `/api/receiving`
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/receiving/scan` | multipart: `file` (image/pdf), `supplierId?`, `engine?` | 200 `ScanReceiptResponse` |
+
+Calls the billscan sidecar, matches line items to the supplier's inventory items, applies stock for
+confident lines, and persists a goods-receipt record. `409` if the same `(supplierId, billNumber)`
+was already received; `502` if billscan is unreachable.
+
 ## Payload shapes
 
 ```jsonc
@@ -72,6 +81,14 @@ timestamps ISO-8601 UTC. Errors return RFC 7807 `ProblemDetail` (`application/pr
 
 // SaleRequest                             // SaleResponse adds: id, menuItemName, soldAt
 { "menuItemId":"uuid", "orderSize":"REGULAR|null", "quantity":2 }
+
+// ScanReceiptResponse  (POST /api/receiving/scan)
+{ "receiptId":"uuid", "supplierId":"uuid|null",
+  "status":"APPLIED|PARTIAL|UNMATCHED_SUPPLIER",
+  "applied":1, "needsReview":0, "unmatched":1,
+  "lines":[ { "description":"Milk", "scannedQuantity":2, "scannedUnit":"ltr",
+    "matchedItemId":"uuid|null", "appliedQuantity":2000,
+    "lineStatus":"APPLIED|UNMATCHED_ITEM|NEEDS_REVIEW", "note":"string|null" } ] }
 ```
 
 ## Enums (fixed string values)

@@ -24,8 +24,15 @@ com.arogya.cafe
 ├── supplier/  {controller, service, dto, entity, repository}
 ├── inventory/ {controller, service, dto, entity, repository}
 ├── menu/      {controller, service, dto, entity, repository}
-└── sales/     {controller, service, dto, entity, repository}
+├── sales/     {controller, service, dto, entity, repository}
+└── receiving/ {controller, service, dto, entity, repository, client, support, config}
 ```
+
+The `receiving` module integrates the external **billscan** service (FastAPI, runs as a sidecar in
+the backend pod). `client/BillScanClient` (interface) + `RestBillScanClient` (RestClient impl)
+isolate the HTTP call so the service is unit-testable with a stub. `support/UnitMapper` maps scanned
+unit strings to the `Unit` enum (litre → ML ×1000). Stock is applied via the existing
+`InventoryItem.adjust`; outcomes are persisted as `GoodsReceipt` + `GoodsReceiptLine` rows.
 
 Each module is a vertical slice. Files that change together live together.
 
