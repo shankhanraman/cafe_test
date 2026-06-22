@@ -34,21 +34,34 @@ argocd/            Argo CD Application (auto-sync from infra/k8s/backend)
      and `github_actions_secret_access_key` (the CI IAM user; least-privilege ECR push).
    - `AWS_ACCOUNT_ID` — your 12-digit account id (used to form the ECR registry URL).
    `GITHUB_TOKEN` is provided automatically.
-4. **Provide the backend's DB secret** (do not commit real values):
+4. **Create the namespace and DB secrets** (do not commit real values). The backend talks to an
+   in-cluster Postgres (`infra/k8s/postgres`) at `postgres.cafe-test.svc.cluster.local:5432`; the two
+   passwords must match.
    ```bash
    kubectl create namespace cafe-test
+   PGPASS='choose-a-strong-password'
+   # Postgres pod credentials
+   kubectl -n cafe-test create secret generic cafe-test-postgres-secrets \
+     --from-literal=POSTGRES_USER=arogya \
+     --from-literal=POSTGRES_PASSWORD="$PGPASS" \
+     --from-literal=POSTGRES_DB=arogya
+   # Backend connection (same password)
    kubectl -n cafe-test create secret generic cafe-test-backend-secrets \
-     --from-literal=SPRING_DATASOURCE_URL='jdbc:postgresql://<rds-endpoint>:5432/arogya' \
-     --from-literal=SPRING_DATASOURCE_USERNAME='<user>' \
-     --from-literal=SPRING_DATASOURCE_PASSWORD='<pass>'
+     --from-literal=SPRING_DATASOURCE_URL='jdbc:postgresql://postgres.cafe-test.svc.cluster.local:5432/arogya' \
+     --from-literal=SPRING_DATASOURCE_USERNAME=arogya \
+     --from-literal=SPRING_DATASOURCE_PASSWORD="$PGPASS"
    ```
-   (Point the URL at a managed Postgres such as AWS RDS — Terraform here provisions the cluster, not the DB.)
-5. **Install Argo CD and register the app:**
+   For production, point `SPRING_DATASOURCE_URL` at AWS RDS instead and skip the Postgres pod.
+   The Postgres `PersistentVolumeClaim` needs the EBS CSI driver — it's enabled in `eks.tf`
+   (`cluster_addons.aws-ebs-csi-driver`), which also provides a default `gp2` StorageClass.
+5. **Install Argo CD and register the apps** (Postgres + backend):
    ```bash
    kubectl create namespace argocd
    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-   kubectl apply -f argocd/
+   kubectl apply -f argocd/   # applies both postgres-app.yaml and backend-app.yaml
    ```
+   Postgres comes up first; the backend may crash-loop briefly until the DB is ready, then Flyway
+   migrates and it goes healthy.
 6. **Push to `main`** — the workflow runs tests, builds the image, pushes to ECR, rewrites the image
    tag in `infra/k8s/backend/deployment.yaml`, and commits. Argo CD then auto-syncs the new image to
    the cluster.
