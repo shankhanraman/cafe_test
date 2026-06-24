@@ -9,8 +9,10 @@ const queryClient = new QueryClient({
 });
 
 async function enableMocks() {
-  // Mock mode is the default; set VITE_USE_MSW=false to hit the real backend via the Vite proxy.
-  if (import.meta.env.VITE_USE_MSW === 'false') return;
+  // Real backend is the default: `npm run dev` proxies same-origin /api/* to the Spring backend
+  // (VITE_PROXY_TARGET, default http://localhost:8080). Opt into the in-browser MSW mocks with
+  // VITE_USE_MSW=true (e.g. `npm run dev:mock`) to develop backend-free.
+  if (import.meta.env.VITE_USE_MSW !== 'true') return;
   const { worker } = await import('./mocks/browser');
   return worker.start({ onUnhandledRequest: 'bypass' });
 }

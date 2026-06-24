@@ -8,9 +8,11 @@ Draft: the backend is not built yet. Stable enough to build against; treat as dr
 
  * OpenAPI spec version: 0.2.0
  */
-import type { InventoryRequest } from './inventoryRequest';
 
-/**
- * @nullable
- */
-export type ConfirmBillRequestLinesItemNewItem = InventoryRequest | null;
+export type ScanReceiptBody = {
+  file: Blob;
+  /** @nullable */
+  supplierId?: string | null;
+  /** OCR engine hint (e.g. auto). */
+  engine?: string;
+};

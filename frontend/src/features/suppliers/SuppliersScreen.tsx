@@ -1,7 +1,17 @@
-import { useState } from 'react';
-import { useListSuppliers } from '../../api/generated/suppliers/suppliers';
-import { Card, Button, Avatar, money } from '../../components/ui';
-import { IconPlus } from '../../lib/icons';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useListSuppliers,
+  useCreateSupplier,
+  useUpdateSupplier,
+  useDeleteSupplier,
+  useGetSupplier,
+} from '../../api/generated/suppliers/suppliers';
+import type { SupplierResponse } from '../../api/generated/model/supplierResponse';
+import { useApp } from '../../app/app-context';
+import { ApiError } from '../../api/http-client';
+import { Card, Button, Avatar, Modal, money } from '../../components/ui';
+import { IconPlus, IconEdit } from '../../lib/icons';
 
 // Learned aliases + purchase history are part of the OCR flow (design-ahead-of-API); shown
 // here from demo data per the handoff until those endpoints exist.
@@ -19,13 +29,14 @@ const HISTORY: Record<string, { date: string; items: number; total: number }[]> 
 export function SuppliersScreen() {
   const suppliers = useListSuppliers().data?.data ?? [];
   const [selId, setSelId] = useState<string>('');
+  const [form, setForm] = useState<{ mode: 'create' } | { mode: 'edit'; id: string } | null>(null);
   const sel = suppliers.find((s) => s.id === selId) ?? suppliers[0];
 
   return (
     <div>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <h1 className="display" style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Suppliers</h1>
-        <Button><IconPlus size={16} /> Add supplier</Button>
+        <Button onClick={() => setForm({ mode: 'create' })}><IconPlus size={16} /> Add supplier</Button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: 20, alignItems: 'start' }}>
@@ -59,10 +70,14 @@ export function SuppliersScreen() {
           <Card style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 16, borderBottom: '1px solid var(--divider)' }}>
               <Avatar label={initials(sel.name)} />
-              <div>
+              <div style={{ flex: 1 }}>
                 <div className="display" style={{ fontWeight: 700, fontSize: 18 }}>{sel.name}</div>
                 <div style={{ fontSize: 13, color: 'var(--faint)' }}>{sel.phone ?? 'No phone'} · {sel.notes || 'Supplier'}</div>
               </div>
+              <Button variant="ghost" style={{ padding: '8px 12px' }} onClick={() => setForm({ mode: 'edit', id: sel.id })}>
+                <IconEdit size={15} /> Edit
+              </Button>
+              <DeleteSupplierButton supplier={sel} onDeleted={() => setSelId('')} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, paddingTop: 16 }}>
@@ -93,8 +108,127 @@ export function SuppliersScreen() {
           </Card>
         )}
       </div>
+
+      {form && (
+        <SupplierFormModal
+          mode={form.mode}
+          id={form.mode === 'edit' ? form.id : undefined}
+          onClose={() => setForm(null)}
+          onSaved={(id) => {
+            setSelId(id);
+            setForm(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
+function DeleteSupplierButton({ supplier, onDeleted }: { supplier: SupplierResponse; onDeleted: () => void }) {
+  const { showToast } = useApp();
+  const qc = useQueryClient();
+  const del = useDeleteSupplier();
+  const remove = async () => {
+    if (!window.confirm(`Delete supplier "${supplier.name}"?`)) return;
+    try {
+      await del.mutateAsync({ id: supplier.id });
+      await qc.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      showToast({ title: 'Supplier deleted', sub: supplier.name });
+      onDeleted();
+    } catch (e) {
+      showToast({ title: 'Could not delete supplier', sub: errMsg(e) });
+    }
+  };
+  return (
+    <Button variant="danger" style={{ padding: '8px 12px' }} disabled={del.isPending} onClick={remove}>
+      Delete
+    </Button>
+  );
+}
+
+function SupplierFormModal({
+  mode,
+  id,
+  onClose,
+  onSaved,
+}: {
+  mode: 'create' | 'edit';
+  id?: string;
+  onClose: () => void;
+  onSaved: (id: string) => void;
+}) {
+  const { showToast } = useApp();
+  const qc = useQueryClient();
+  const create = useCreateSupplier();
+  const update = useUpdateSupplier();
+  // Load the current record by id when editing — exercises GET /api/suppliers/{id}.
+  const existing = useGetSupplier(id ?? '', { query: { enabled: mode === 'edit' && !!id } });
+
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    const res = existing.data;
+    if (mode === 'edit' && res?.status === 200) {
+      const s = res.data;
+      setName(s.name);
+      setPhone(s.phone ?? '');
+      setNotes(s.notes ?? '');
+    }
+  }, [mode, existing.data]);
+
+  const pending = create.isPending || update.isPending;
+  const save = async () => {
+    const data = { name: name.trim(), phone: phone.trim() || null, notes: notes.trim() || null };
+    try {
+      const res =
+        mode === 'edit' && id
+          ? await update.mutateAsync({ id, data })
+          : await create.mutateAsync({ data });
+      await qc.invalidateQueries({ queryKey: ['/api/suppliers'] });
+      showToast({ title: mode === 'edit' ? 'Supplier updated' : 'Supplier added', sub: data.name });
+      if (res.status === 200 || res.status === 201) onSaved(res.data.id);
+    } catch (e) {
+      showToast({ title: 'Could not save supplier', sub: errMsg(e) });
+    }
+  };
+
+  const loading = mode === 'edit' && existing.isLoading;
+  return (
+    <Modal title={mode === 'edit' ? 'Edit supplier' : 'Add supplier'} width={460} onClose={onClose}>
+      {loading ? (
+        <div style={{ padding: 24, color: 'var(--faint)', fontSize: 14 }}>Loading…</div>
+      ) : (
+        <>
+          <Field label="Name" value={name} onChange={setName} />
+          <Field label="Phone" value={phone} onChange={setPhone} />
+          <Field label="Notes" value={notes} onChange={setNotes} />
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button disabled={!name.trim() || pending} onClick={save}>
+              {mode === 'edit' ? 'Save changes' : 'Add supplier'}
+            </Button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div className="eyebrow" style={{ color: 'var(--faint)', marginBottom: 6 }}>{label}</div>
+      <input
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 14 }}
+      />
+    </div>
+  );
+}
+
+const errMsg = (e: unknown) => (e instanceof ApiError ? e.problem?.detail || e.message : 'Unexpected error');
 const initials = (name: string) => name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();

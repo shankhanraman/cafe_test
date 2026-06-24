@@ -6,5 +6,6 @@ coverage/
 .env.*
 !.env.example
 !.env.integration
+!.env.mock
 playwright-report/
 test-results/

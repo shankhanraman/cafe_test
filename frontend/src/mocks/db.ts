@@ -83,6 +83,15 @@ function sale(
 let saleSeq = 100;
 export const nextSaleId = () => `sale-${saleSeq++}`;
 
+// Id generators for entities created through the mock write endpoints. Seq counters (not
+// Date.now/random) so ids stay stable and readable across a session.
+let supplierSeq = 100;
+let inventorySeq = 100;
+let menuSeq = 100;
+export const nextSupplierId = () => `sup-${supplierSeq++}`;
+export const nextInventoryId = () => `inv-${inventorySeq++}`;
+export const nextMenuId = () => `menu-${menuSeq++}`;
+
 /** Recipe lines for a given order size (MADE items). */
 export function recipeForSize(menuId: string, size: string) {
   const m = db.menu.find((x) => x.id === menuId);

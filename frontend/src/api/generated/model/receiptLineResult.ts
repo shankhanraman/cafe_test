@@ -8,9 +8,26 @@ Draft: the backend is not built yet. Stable enough to build against; treat as dr
 
  * OpenAPI spec version: 0.2.0
  */
+import type { LineStatus } from './lineStatus';
 
-export type SubmitBillBody = {
-  file: Blob;
+export interface ReceiptLineResult {
+  /** Item name as OCR read it; may be Devanagari, romanized Hindi, or English. */
+  description: string;
   /** @nullable */
-  supplierId?: string | null;
-};
+  scannedQuantity?: number | null;
+  /**
+   * OCR-read free-text unit.
+   * @nullable
+   */
+  scannedUnit?: string | null;
+  /** @nullable */
+  matchedItemId?: string | null;
+  /**
+   * Quantity actually added to stock (APPLIED lines).
+   * @nullable
+   */
+  appliedQuantity?: number | null;
+  lineStatus: LineStatus;
+  /** @nullable */
+  note?: string | null;
+}

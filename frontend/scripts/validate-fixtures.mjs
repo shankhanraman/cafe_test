@@ -10,7 +10,8 @@ const CATEGORIES = [
 ];
 const MENU_TYPES = ['MADE', 'RESALE'];
 const ORDER_SIZES = ['REGULAR', 'LESS', 'SERVING'];
-const ROW_STATES = ['confident', 'needs_review', 'new'];
+const LINE_STATUSES = ['APPLIED', 'UNMATCHED_ITEM', 'NEEDS_REVIEW'];
+const RECEIPT_STATUSES = ['APPLIED', 'PARTIAL', 'UNMATCHED_SUPPLIER'];
 
 const errors = [];
 const load = (file) => {
@@ -77,32 +78,26 @@ if (sales) {
   }
 }
 
-// ---- bills (OCR core): cover every row state + the unreadable job.
-const bills = load('bills.json');
-if (bills) {
-  const jobs = bills.jobs || [];
-  const seenStatus = new Set();
-  const seenRowState = new Set();
-  for (const job of jobs) {
-    must(!!job.jobId, 'a bill job is missing jobId');
-    must(['processing', 'done', 'failed', 'unreadable'].includes(job.status), `${job.jobId}: invalid status "${job.status}"`);
-    seenStatus.add(job.status);
-    if (job.status === 'done') {
-      must(Array.isArray(job.lines) && job.lines.length > 0, `${job.jobId}: a done job must have lines`);
-      for (const line of job.lines || []) {
-        must(ROW_STATES.includes(line.matchState), `${job.jobId}/${line.lineId}: invalid matchState "${line.matchState}"`);
-        if (ROW_STATES.includes(line.matchState)) seenRowState.add(line.matchState);
-      }
-    } else if (job.status !== 'processing') {
-      must(!!job.error, `${job.jobId}: ${job.status} job should carry an error message`);
+// ---- receiving (scan-and-apply): valid enums; cover every line status the result UI renders.
+const receiving = load('receiving.json');
+if (receiving) {
+  const receipts = receiving.receipts || [];
+  const seenLineStatus = new Set();
+  for (const r of receipts) {
+    must(RECEIPT_STATUSES.includes(r.status), `receipt ${r.receiptId}: invalid status "${r.status}"`);
+    must(Array.isArray(r.lines) && r.lines.length > 0, `receipt ${r.receiptId}: must have lines`);
+    for (const line of r.lines || []) {
+      must(LINE_STATUSES.includes(line.lineStatus), `receipt ${r.receiptId}: invalid lineStatus "${line.lineStatus}"`);
+      if (LINE_STATUSES.includes(line.lineStatus)) seenLineStatus.add(line.lineStatus);
+      must(!!line.description, `receipt ${r.receiptId}: a line is missing description`);
     }
   }
-  for (const s of ROW_STATES) must(seenRowState.has(s), `No bill fixture covers row state "${s}"`);
-  must(seenStatus.has('unreadable'), 'No bill fixture covers an unreadable job');
+  must(receipts.length > 0, 'receiving.json has no receipts');
+  for (const s of LINE_STATUSES) must(seenLineStatus.has(s), `No receiving fixture covers line status "${s}"`);
 }
 
 if (errors.length) {
   console.error('Fixture validation failed:\n  - ' + errors.join('\n  - '));
   process.exit(1);
 }
-console.log('Fixtures OK: inventory, suppliers, menu, sales, bills — all valid and covering required states.');
+console.log('Fixtures OK: inventory, suppliers, menu, sales, receiving — all valid and covering required states.');

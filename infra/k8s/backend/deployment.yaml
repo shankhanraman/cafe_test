@@ -43,23 +43,28 @@ spec:
               port: 8080
             initialDelaySeconds: 40
             periodSeconds: 10
-        # Sidecar: bill-scanner (FastAPI). The backend reaches it at
-        # http://localhost:8000 (BILLSCAN_BASE_URL default) over the shared pod network.
-        - name: billscan
-          # Image is patched by the billscan CI workflow to the real ECR URL + git SHA.
-          image: 835253518413.dkr.ecr.us-east-1.amazonaws.com/cafe-test-billscan:latest
-          ports:
-            - containerPort: 8000
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-            limits:
-              cpu: "1000m"
-              memory: "2Gi"
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 10
+        # Sidecar: bill-scanner (FastAPI) — DISABLED for this deploy.
+        # The billscan service has no source in this repo, no ECR repository
+        # (ecr.tf only creates cafe-test-backend), and no CI workflow to build it,
+        # so its image can't be pulled. A pod is only Ready when ALL its containers
+        # are Ready, so leaving this sidecar in would keep the whole backend NotReady
+        # (ImagePullBackOff) and take the API down entirely.
+        #
+        # Consequence: POST /api/receiving/scan returns 5xx (the backend can't reach
+        # http://localhost:8000) until a billscan service is provided. The rest of the
+        # API (suppliers, inventory, menu, sales) works normally.
+        #
+        # To enable scanning later: publish a billscan image to ECR, uncomment this
+        # sidecar (or run billscan as its own Deployment+Service and set
+        # BILLSCAN_BASE_URL in the cafe-test-backend-secrets Secret to point at it).
+        # - name: billscan
+        #   image: 835253518413.dkr.ecr.us-east-1.amazonaws.com/cafe-test-billscan:latest
+        #   ports:
+        #     - containerPort: 8000
+        #   resources:
+        #     requests: { cpu: "250m", memory: "512Mi" }
+        #     limits: { cpu: "1000m", memory: "2Gi" }
+        #   readinessProbe:
+        #     httpGet: { path: /health, port: 8000 }
+        #     initialDelaySeconds: 10
+        #     periodSeconds: 10

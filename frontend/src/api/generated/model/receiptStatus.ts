@@ -9,9 +9,14 @@ Draft: the backend is not built yet. Stable enough to build against; treat as dr
  * OpenAPI spec version: 0.2.0
  */
 
-export interface ConfirmBillResult {
-  purchaseId: string;
-  updatedCount: number;
-  newItemsCount: number;
-  total: number;
-}
+/**
+ * Overall receipt outcome.
+ */
+export type ReceiptStatus = (typeof ReceiptStatus)[keyof typeof ReceiptStatus];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReceiptStatus = {
+  APPLIED: 'APPLIED',
+  PARTIAL: 'PARTIAL',
+  UNMATCHED_SUPPLIER: 'UNMATCHED_SUPPLIER',
+} as const;

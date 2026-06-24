@@ -295,12 +295,16 @@ paths:
               schema: { $ref: '#/components/schemas/SaleResponse' }
         '400': { $ref: '#/components/responses/ValidationError' }
 
-  # ---------------------------------------------------------------- OCR bills (retained core)
-  /api/bills:
+  # ------------------------------------------------- Receiving (scan supplier bills → stock-in)
+  /api/receiving/scan:
     post:
-      operationId: submitBill
-      tags: [bills]
-      summary: Upload a supplier bill for OCR extraction (ASYNC — poll the job)
+      operationId: scanReceipt
+      tags: [receiving]
+      summary: Scan a supplier bill (OCR) and apply matched lines to stock in one call.
+      description: >
+        Synchronous scan-and-apply. The backend OCR-extracts line items, matches them to
+        inventory, applies matched lines as stock-in, and flags the rest (NEEDS_REVIEW /
+        UNMATCHED_ITEM). Returns the persisted goods-receipt summary.
       requestBody:
         required: true
         content:
@@ -311,45 +315,14 @@ paths:
               properties:
                 file: { type: string, format: binary }
                 supplierId: { type: string, format: uuid, nullable: true }
-      responses:
-        '202':
-          description: Job accepted; poll GET /api/bills/{jobId}
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/BillJob' }
-  /api/bills/{jobId}:
-    parameters:
-      - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
-    get:
-      operationId: getBillJob
-      tags: [bills]
+                engine: { type: string, default: auto, description: 'OCR engine hint (e.g. auto).' }
       responses:
         '200':
-          description: Current job state. Preview table shown only for `done`.
+          description: Receipt scanned; matched lines applied to stock.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/BillJob' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/bills/{jobId}/confirm:
-    parameters:
-      - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
-    post:
-      operationId: confirmBill
-      tags: [bills]
-      summary: Commit resolved lines to stock; saves the purchase; learns per-supplier aliases server-side.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ConfirmBillRequest' }
-      responses:
-        '200':
-          description: Confirmation summary
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ConfirmBillResult' }
+              schema: { $ref: '#/components/schemas/ScanReceiptResponse' }
         '400': { $ref: '#/components/responses/ValidationError' }
-        '404': { $ref: '#/components/responses/NotFound' }
 
 components:
   responses:
@@ -504,70 +477,38 @@ components:
         quantity: { type: number }
         soldAt: { type: string, format: date-time }
 
-    # ---- OCR bills (retained core)
-    BillJob:
+    # ---- receiving (scan supplier bills → goods receipt, stock-in applied server-side)
+    LineStatus:
+      type: string
+      description: Per-line outcome after matching against inventory.
+      enum: [APPLIED, UNMATCHED_ITEM, NEEDS_REVIEW]
+    ReceiptStatus:
+      type: string
+      description: Overall receipt outcome.
+      enum: [APPLIED, PARTIAL, UNMATCHED_SUPPLIER]
+    ReceiptLineResult:
       type: object
-      required: [jobId, status]
+      required: [description, lineStatus]
       properties:
-        jobId: { type: string, format: uuid }
-        status:
-          type: string
-          description: Async lifecycle. The preview table is shown ONLY for `done`.
-          enum: [processing, done, failed, unreadable]
-        lines:
-          type: array
-          nullable: true
-          items: { $ref: '#/components/schemas/BillLine' }
-        supplierId: { type: string, format: uuid, nullable: true }
-        error: { type: string, nullable: true }
-    BillLine:
-      type: object
-      required: [lineId, rawName, matchState]
-      properties:
-        lineId: { type: string, format: uuid }
-        rawName:
+        description:
           type: string
           description: Item name as OCR read it; may be Devanagari, romanized Hindi, or English.
-        quantity: { type: number, nullable: true }
-        unit: { type: string, nullable: true, description: OCR-read free text; mapped to an Inventory Unit on confirm. }
-        price: { type: number, nullable: true }
-        matchState: { type: string, enum: [confident, needs_review, new] }
-        suggestedItemId: { type: string, format: uuid, nullable: true }
-        suggestions:
-          type: array
-          items: { $ref: '#/components/schemas/ItemSuggestion' }
-        matchedViaAlias: { type: string, nullable: true }
-    ItemSuggestion:
+        scannedQuantity: { type: number, nullable: true }
+        scannedUnit: { type: string, nullable: true, description: OCR-read free-text unit. }
+        matchedItemId: { type: string, format: uuid, nullable: true }
+        appliedQuantity: { type: number, nullable: true, description: Quantity actually added to stock (APPLIED lines). }
+        lineStatus: { $ref: '#/components/schemas/LineStatus' }
+        note: { type: string, nullable: true }
+    ScanReceiptResponse:
       type: object
-      required: [itemId, name, score]
+      required: [receiptId, status, applied, needsReview, unmatched, lines]
       properties:
-        itemId: { type: string, format: uuid }
-        name: { type: string }
-        score: { type: number, description: 0..1 confidence }
-    ConfirmBillRequest:
-      type: object
-      required: [supplierId, lines]
-      properties:
-        supplierId: { type: string, format: uuid }
+        receiptId: { type: string, format: uuid }
+        supplierId: { type: string, format: uuid, nullable: true }
+        status: { $ref: '#/components/schemas/ReceiptStatus' }
+        applied: { type: integer, description: Count of lines applied to stock. }
+        needsReview: { type: integer, description: Count of lines flagged for review. }
+        unmatched: { type: integer, description: Count of lines with no inventory match. }
         lines:
           type: array
-          items:
-            type: object
-            required: [lineId, resolution]
-            properties:
-              lineId: { type: string, format: uuid }
-              resolution: { type: string, enum: [matched, created, skipped] }
-              resolvedItemId: { type: string, format: uuid, nullable: true }
-              quantity: { type: number, nullable: true }
-              unit: { allOf: [{ $ref: '#/components/schemas/Unit' }], nullable: true }
-              newItem:
-                nullable: true
-                allOf: [{ $ref: '#/components/schemas/InventoryRequest' }]
-    ConfirmBillResult:
-      type: object
-      required: [purchaseId, updatedCount, newItemsCount, total]
-      properties:
-        purchaseId: { type: string, format: uuid }
-        updatedCount: { type: integer }
-        newItemsCount: { type: integer }
-        total: { type: number }
+          items: { $ref: '#/components/schemas/ReceiptLineResult' }

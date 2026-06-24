@@ -9,12 +9,14 @@ Draft: the backend is not built yet. Stable enough to build against; treat as dr
  * OpenAPI spec version: 0.2.0
  */
 
-export type ConfirmBillRequestLinesItemResolution =
-  (typeof ConfirmBillRequestLinesItemResolution)[keyof typeof ConfirmBillRequestLinesItemResolution];
+/**
+ * Per-line outcome after matching against inventory.
+ */
+export type LineStatus = (typeof LineStatus)[keyof typeof LineStatus];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const ConfirmBillRequestLinesItemResolution = {
-  matched: 'matched',
-  created: 'created',
-  skipped: 'skipped',
+export const LineStatus = {
+  APPLIED: 'APPLIED',
+  UNMATCHED_ITEM: 'UNMATCHED_ITEM',
+  NEEDS_REVIEW: 'NEEDS_REVIEW',
 } as const;

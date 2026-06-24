@@ -1,0 +1,50 @@
+{
+  "receipts": [
+    {
+      "receiptId": "11111111-1111-1111-1111-111111111111",
+      "supplierId": "sup-greenleaf",
+      "status": "PARTIAL",
+      "applied": 2,
+      "needsReview": 1,
+      "unmatched": 1,
+      "lines": [
+        {
+          "description": "दूध (Dudh)",
+          "scannedQuantity": 4000,
+          "scannedUnit": "ml",
+          "matchedItemId": "inv-milk",
+          "appliedQuantity": 4000,
+          "lineStatus": "APPLIED",
+          "note": null
+        },
+        {
+          "description": "इलायची (Cardamom)",
+          "scannedQuantity": 100,
+          "scannedUnit": "box",
+          "matchedItemId": "inv-cardamom",
+          "appliedQuantity": 100,
+          "lineStatus": "APPLIED",
+          "note": null
+        },
+        {
+          "description": "टमाटर (Tamatar)",
+          "scannedQuantity": 12,
+          "scannedUnit": "kg",
+          "matchedItemId": null,
+          "appliedQuantity": null,
+          "lineStatus": "NEEDS_REVIEW",
+          "note": "Ambiguous match — confirm the item in Inventory."
+        },
+        {
+          "description": "Imported olives",
+          "scannedQuantity": 2,
+          "scannedUnit": "jar",
+          "matchedItemId": null,
+          "appliedQuantity": null,
+          "lineStatus": "UNMATCHED_ITEM",
+          "note": "No inventory item matched this line."
+        }
+      ]
+    }
+  ]
+}

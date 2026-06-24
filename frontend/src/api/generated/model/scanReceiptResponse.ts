@@ -8,16 +8,19 @@ Draft: the backend is not built yet. Stable enough to build against; treat as dr
 
  * OpenAPI spec version: 0.2.0
  */
+import type { ReceiptStatus } from './receiptStatus';
+import type { ReceiptLineResult } from './receiptLineResult';
 
-/**
- * Async lifecycle. The preview table is shown ONLY for `done`.
- */
-export type BillJobStatus = (typeof BillJobStatus)[keyof typeof BillJobStatus];
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const BillJobStatus = {
-  processing: 'processing',
-  done: 'done',
-  failed: 'failed',
-  unreadable: 'unreadable',
-} as const;
+export interface ScanReceiptResponse {
+  receiptId: string;
+  /** @nullable */
+  supplierId?: string | null;
+  status: ReceiptStatus;
+  /** Count of lines applied to stock. */
+  applied: number;
+  /** Count of lines flagged for review. */
+  needsReview: number;
+  /** Count of lines with no inventory match. */
+  unmatched: number;
+  lines: ReceiptLineResult[];
+}

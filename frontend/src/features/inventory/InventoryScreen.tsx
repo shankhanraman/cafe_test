@@ -1,12 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApp } from '../../app/app-context';
-import { useListInventory, useAdjustStock } from '../../api/generated/inventory/inventory';
+import {
+  useListInventory,
+  useAdjustStock,
+  useCreateInventoryItem,
+  useUpdateInventoryItem,
+  useDeleteInventoryItem,
+  useGetInventoryItem,
+} from '../../api/generated/inventory/inventory';
+import { useListSuppliers } from '../../api/generated/suppliers/suppliers';
 import type { InventoryResponse } from '../../api/generated/model/inventoryResponse';
+import { Unit } from '../../api/generated/model/unit';
+import { ApiError } from '../../api/http-client';
 import { isLowStock, previewAdjust } from './stock';
 import { Card, Button, Badge, Pill, Modal } from '../../components/ui';
 import { meta } from '../../lib/display';
-import { IconPlus } from '../../lib/icons';
+import { IconPlus, IconEdit } from '../../lib/icons';
+
+const UNITS = Object.values(Unit);
 
 export function InventoryScreen() {
   const invQuery = useListInventory();
@@ -14,6 +26,7 @@ export function InventoryScreen() {
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('All');
   const [adjustItem, setAdjustItem] = useState<InventoryResponse | null>(null);
+  const [form, setForm] = useState<{ mode: 'create' } | { mode: 'edit'; id: string } | null>(null);
 
   const cats = useMemo(() => ['All', ...new Set(items.map((i) => meta(i.id).sub).filter(Boolean))], [items]);
   const filtered = items.filter(
@@ -26,7 +39,7 @@ export function InventoryScreen() {
     <div>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <h1 className="display" style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Inventory</h1>
-        <Button><IconPlus size={16} /> Add item</Button>
+        <Button onClick={() => setForm({ mode: 'create' })}><IconPlus size={16} /> Add item</Button>
       </header>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -60,7 +73,11 @@ export function InventoryScreen() {
                 <span className="mono" style={{ fontWeight: 600, color: low ? 'var(--flag)' : 'var(--confident)' }}>{it.quantityOnHand} {it.unit}</span>,
                 <span className="mono" style={{ color: 'var(--faint)' }}>{it.reorderThreshold}</span>,
                 low ? <Badge tone="flag">Low</Badge> : <Badge tone="confident">In stock</Badge>,
-                <Button variant="ghost" style={{ padding: '6px 12px' }} onClick={() => setAdjustItem(it)}>Adjust</Button>,
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <Button variant="ghost" style={{ padding: '6px 10px' }} onClick={() => setAdjustItem(it)}>Adjust</Button>
+                  <Button variant="ghost" style={{ padding: '6px 10px' }} aria-label={`Edit ${it.name}`} onClick={() => setForm({ mode: 'edit', id: it.id })}><IconEdit size={15} /></Button>
+                  <DeleteItemButton item={it} />
+                </div>,
               ]}
             />
           );
@@ -68,6 +85,13 @@ export function InventoryScreen() {
       </Card>
 
       {adjustItem && <AdjustModal item={adjustItem} onClose={() => setAdjustItem(null)} />}
+      {form && (
+        <ItemFormModal
+          mode={form.mode}
+          id={form.mode === 'edit' ? form.id : undefined}
+          onClose={() => setForm(null)}
+        />
+      )}
     </div>
   );
 }
@@ -76,7 +100,7 @@ function Row({ cells, header }: { cells: React.ReactNode[]; header?: boolean }) 
   return (
     <div
       style={{
-        display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 0.9fr 0.8fr', gap: 12, alignItems: 'center',
+        display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 0.9fr 1.2fr', gap: 12, alignItems: 'center',
         padding: '12px 18px', borderBottom: '1px solid var(--divider)',
         fontSize: header ? 12 : 14, color: header ? 'var(--faint)' : 'var(--ink)',
         fontWeight: header ? 600 : 400, textTransform: header ? 'uppercase' : 'none', letterSpacing: header ? '0.04em' : 0,
@@ -86,6 +110,125 @@ function Row({ cells, header }: { cells: React.ReactNode[]; header?: boolean }) 
         <div key={i}>{c}</div>
       ))}
     </div>
+  );
+}
+
+function DeleteItemButton({ item }: { item: InventoryResponse }) {
+  const { showToast } = useApp();
+  const qc = useQueryClient();
+  const del = useDeleteInventoryItem();
+  const remove = async () => {
+    if (!window.confirm(`Delete "${item.name}"? This removes it from inventory.`)) return;
+    try {
+      await del.mutateAsync({ id: item.id });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['/api/inventory'] }),
+        qc.invalidateQueries({ queryKey: ['/api/inventory/low-stock'] }),
+      ]);
+      showToast({ title: 'Item deleted', sub: item.name });
+    } catch (e) {
+      showToast({ title: 'Could not delete item', sub: errMsg(e) });
+    }
+  };
+  return (
+    <Button variant="danger" style={{ padding: '6px 10px' }} disabled={del.isPending} onClick={remove}>Delete</Button>
+  );
+}
+
+function ItemFormModal({ mode, id, onClose }: { mode: 'create' | 'edit'; id?: string; onClose: () => void }) {
+  const { showToast } = useApp();
+  const qc = useQueryClient();
+  const create = useCreateInventoryItem();
+  const update = useUpdateInventoryItem();
+  const suppliers = useListSuppliers().data?.data ?? [];
+  // Load the current record by id when editing — exercises GET /api/inventory/{id}.
+  const existing = useGetInventoryItem(id ?? '', { query: { enabled: mode === 'edit' && !!id } });
+
+  const [name, setName] = useState('');
+  const [unit, setUnit] = useState<Unit>('PIECE');
+  const [qty, setQty] = useState('0');
+  const [threshold, setThreshold] = useState('0');
+  const [supplierId, setSupplierId] = useState('');
+
+  useEffect(() => {
+    const res = existing.data;
+    if (mode === 'edit' && res?.status === 200) {
+      const it = res.data;
+      setName(it.name);
+      setUnit(it.unit);
+      setQty(String(it.quantityOnHand));
+      setThreshold(String(it.reorderThreshold));
+      setSupplierId(it.supplierId ?? '');
+    }
+  }, [mode, existing.data]);
+
+  const pending = create.isPending || update.isPending;
+  const save = async () => {
+    const data = {
+      name: name.trim(),
+      unit,
+      quantityOnHand: Number(qty) || 0,
+      reorderThreshold: Number(threshold) || 0,
+      supplierId: supplierId || null,
+    };
+    try {
+      if (mode === 'edit' && id) await update.mutateAsync({ id, data });
+      else await create.mutateAsync({ data });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['/api/inventory'] }),
+        qc.invalidateQueries({ queryKey: ['/api/inventory/low-stock'] }),
+      ]);
+      showToast({ title: mode === 'edit' ? 'Item updated' : 'Item added', sub: data.name });
+      onClose();
+    } catch (e) {
+      showToast({ title: 'Could not save item', sub: errMsg(e) });
+    }
+  };
+
+  const loading = mode === 'edit' && existing.isLoading;
+  return (
+    <Modal title={mode === 'edit' ? 'Edit item' : 'Add item'} width={460} onClose={onClose}>
+      {loading ? (
+        <div style={{ padding: 24, color: 'var(--faint)', fontSize: 14 }}>Loading…</div>
+      ) : (
+        <>
+          <Label>Name</Label>
+          <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div>
+              <Label>Unit</Label>
+              <select aria-label="Unit" value={unit} onChange={(e) => setUnit(e.target.value as Unit)} style={inputStyle}>
+                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Supplier</Label>
+              <select aria-label="Supplier" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} style={inputStyle}>
+                <option value="">— None —</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div>
+              <Label>Quantity on hand</Label>
+              <input aria-label="Quantity on hand" type="number" value={qty} onChange={(e) => setQty(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <Label>Reorder threshold</Label>
+              <input aria-label="Reorder threshold" type="number" value={threshold} onChange={(e) => setThreshold(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button disabled={!name.trim() || pending} onClick={save}>{mode === 'edit' ? 'Save changes' : 'Add item'}</Button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -162,3 +305,6 @@ function AdjustModal({ item, onClose }: { item: InventoryResponse; onClose: () =
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="eyebrow" style={{ color: 'var(--faint)', marginBottom: 8 }}>{children}</div>;
 }
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 14 };
+const errMsg = (e: unknown) => (e instanceof ApiError ? e.problem?.detail || e.message : 'Unexpected error');
